@@ -1,0 +1,16 @@
+[package]
+name = "net210"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+board_qemu = []
+board_k210 = []
+
+[dependencies]
+smoltcp = { version = "0.8.0", default-features = false, features = ["proto-ipv6"] }
+
+[profile.release]
+debug = true
