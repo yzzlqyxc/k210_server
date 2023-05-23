@@ -34,7 +34,7 @@ OBJCOPY := rust-objcopy --binary-architecture=riscv64
 # Disassembly
 DISASM ?= -x
 
-build: env switch-check $(KERNEL_BIN)
+build: switch-check $(KERNEL_BIN)
 
 switch-check:
 ifeq ($(BOARD), qemu)
@@ -42,12 +42,6 @@ ifeq ($(BOARD), qemu)
 else ifeq ($(BOARD), k210)
 	(which last-k210) || (rm -f last-qemu && touch last-k210 && make clean)
 endif
-
-env:
-	(rustup target list | grep "riscv64gc-unknown-none-elf (installed)") || rustup target add $(TARGET)
-	cargo install cargo-binutils
-	rustup component add rust-src
-	rustup component add llvm-tools-preview
 
 $(KERNEL_BIN): kernel
 	@$(OBJCOPY) $(KERNEL_ELF) --strip-all -O binary $@

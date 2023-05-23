@@ -11,7 +11,7 @@ board_k210 = []
 
 [dependencies]
 smoltcp = { version = "0.8.0", default-features = false, features = ["proto-ipv4", "medium-ethernet", "socket-tcp"] }
-k210-pac ={ version = "0.2.0"}
+k210-hal = "0.2.0"
 
 [profile.release]
 debug = true
