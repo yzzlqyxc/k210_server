@@ -10,7 +10,6 @@ mod net;
 
 use core::arch::global_asm;
 use core::include_str;
-use smoltcp;
 
 global_asm!(include_str!("entry.asm"));
 
@@ -27,9 +26,8 @@ fn clear_bss() {
 #[no_mangle]
 pub fn rust_main() -> ! {
     clear_bss();
-
-    println!("Hello, world");
-    
+    net::test();
+    println!("_______ ALL WORKS WELL _______"); 
     panic!("Shutdown machine!");
 }
 
