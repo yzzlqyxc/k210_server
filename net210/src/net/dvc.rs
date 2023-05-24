@@ -1,14 +1,13 @@
-use smoltcp::Result;
-use smoltcp::phy::{self, DeviceCapabilities, Device, Medium};
+use smoltcp::phy::{self, DeviceCapabilities,  Medium};
 use smoltcp::time::Instant;
 
-struct K210Phy {
+pub struct K210Phy {
     rx_buffer: [u8; 1536],
     tx_buffer: [u8; 1536],
 }
 
 impl<'a> K210Phy {
-    fn new() -> K210Phy {
+    pub fn new() -> K210Phy {
         K210Phy {
             rx_buffer: [0; 1536],
             tx_buffer: [0; 1536],
@@ -16,16 +15,16 @@ impl<'a> K210Phy {
     }
 }
 
-impl<'a> phy::Device<'a> for K210Phy {
-    type RxToken = K210PhyRxToken<'a>;
-    type TxToken = K210PhyTxToken<'a>;
+impl phy::Device for K210Phy {
+    type RxToken<'a> = K210PhyRxToken<'a> where Self: 'a;
+    type TxToken<'a> = K210PhyTxToken<'a> where Self: 'a;
 
-    fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
+    fn receive(&mut self, _timestamp: Instant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
         Some((K210PhyRxToken(&mut self.rx_buffer[..]),
               K210PhyTxToken(&mut self.tx_buffer[..])))
     }
 
-    fn transmit(&'a mut self) -> Option<Self::TxToken> {
+    fn transmit(&mut self, _timestamp: Instant) -> Option<Self::TxToken<'_>> {
         Some(K210PhyTxToken(&mut self.tx_buffer[..]))
     }
 
@@ -38,11 +37,11 @@ impl<'a> phy::Device<'a> for K210Phy {
     }
 }
 
-struct K210PhyRxToken<'a>(&'a mut [u8]);
+pub struct K210PhyRxToken<'a>(&'a mut [u8]);
 
 impl<'a> phy::RxToken for K210PhyRxToken<'a> {
-    fn consume<R, F>(mut self, _timestamp: Instant, f: F) -> Result<R>
-        where F: FnOnce(&mut [u8]) -> Result<R>
+    fn consume<R, F>(mut self, f: F) -> R
+        where F: FnOnce(&mut [u8]) -> R
     {
         // TODO: receive packet into buffer
         let result = f(&mut self.0);
@@ -51,11 +50,11 @@ impl<'a> phy::RxToken for K210PhyRxToken<'a> {
     }
 }
 
-struct K210PhyTxToken<'a>(&'a mut [u8]);
+pub struct K210PhyTxToken<'a>(&'a mut [u8]);
 
 impl<'a> phy::TxToken for K210PhyTxToken<'a> {
-    fn consume<R, F>(self, _timestamp: Instant, len: usize, f: F) -> Result<R>
-        where F: FnOnce(&mut [u8]) -> Result<R>
+    fn consume<R, F>(self, len: usize, f: F) -> R
+        where F: FnOnce(&mut [u8]) -> R
     {
         let result = f(&mut self.0[..len]);
         println!("tx called {}", len);
