@@ -1,6 +1,6 @@
 OUTPUT_ARCH(riscv)
 ENTRY(_start)
-BASE_ADDRESS = 0x80020000;
+BASE_ADDRESS = 0x80200000;
 
 SECTIONS
 {
@@ -45,4 +45,4 @@ SECTIONS
     /DISCARD/ : {
         *(.eh_frame)
     }
-}   
+}
