@@ -22,11 +22,11 @@ pub fn sent() {
     let wifi_s = ph.UART1.configure(Bps(115200), &clocks);
     let (mut tx, mut rx) = wifi_s.split();
 
-    // let t = "AT+CWJAP_DEF=\"CMCC-2.4G-313\",\"18788187147\"\r\n";
-    // for i in t.chars() {
-    //     let respon = block!(a.try_write(i as u8));
-    //     respon.unwrap();
-    // }
+    let t = "AT+CWJAP_DEF=\"CMCC-2.4G-313\",\"18788187147\"\r\n";
+    for i in t.chars() {
+        let respon = block!(tx.try_write(i as u8));
+        respon.unwrap();
+    }
     // sleep::usleep(200000);
 
     let t = "AT+PING=\"www.baidu.com\"\r\n";
@@ -35,12 +35,12 @@ pub fn sent() {
         respon.unwrap();
     }
 
-    loop {
-        let t = block!(rx.try_read());
-        if let Ok(ch) = t {
-            print!("{}", ch as char);
-        } else {
-            break;
-        }
-    }
+    // loop {
+    //     let t = block!(rx.try_read());
+    //     if let Ok(ch) = t {
+    //         print!("{}", ch as char);
+    //     } else {
+    //         break;
+    //     }
+    // }
 }
