@@ -29,12 +29,16 @@ pub fn sent() {
     }
     // sleep::usleep(200000);
 
-    let t = "AT+PING=\"www.baidu.com\"\r\n";
-    for i in t.chars() {
-        let respon = block!(tx.try_write(i as u8));
-        respon.unwrap();
-    }
-
+    // let t = "AT+PING=\"www.baidu.com\"\r\n";
+    // for i in t.chars() {
+    //     let respon = block!(tx.try_write(i as u8));
+    //     respon.unwrap();
+    // }
+    // let t = "AT+CIPSTAMAC_CUR?\r\n";
+    // for i in t.chars() {
+    //     let respon = block!(tx.try_write(i as u8));
+    //     respon.unwrap();
+    // }
     // loop {
     //     let t = block!(rx.try_read());
     //     if let Ok(ch) = t {

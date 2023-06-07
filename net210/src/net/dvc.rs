@@ -2,15 +2,15 @@ use smoltcp::phy::{self, DeviceCapabilities,  Medium};
 use smoltcp::time::Instant;
 
 pub struct K210Phy {
-    rx_buffer: [u8; 1536],
-    tx_buffer: [u8; 1536],
+    rx_buffer: [u8; 1024],
+    tx_buffer: [u8; 1024],
 }
 
 impl<'a> K210Phy {
     pub fn new() -> K210Phy {
         K210Phy {
-            rx_buffer: [0; 1536],
-            tx_buffer: [0; 1536],
+            rx_buffer: [0; 1024],
+            tx_buffer: [0; 1024],
         }
     }
 }
@@ -30,7 +30,7 @@ impl phy::Device for K210Phy {
 
     fn capabilities(&self) -> DeviceCapabilities {
         let mut caps = DeviceCapabilities::default();
-        caps.max_transmission_unit = 1536;
+        caps.max_transmission_unit = 1024;
         caps.max_burst_size = Some(1);
         caps.medium = Medium::Ethernet;
         caps
