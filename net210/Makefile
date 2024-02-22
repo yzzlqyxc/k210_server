@@ -11,7 +11,7 @@ ifeq ($(MODE), release)
 endif
 
 # BOARD
-BOARD ?= qemu
+BOARD ?= k210
 SBI ?= rustsbi
 BOOTLOADER := ../$(SBI)-$(BOARD).bin
 K210_BOOTLOADER_SIZE := 131072
@@ -70,7 +70,7 @@ else
 		-machine virt \
 		-nographic \
 		-bios $(BOOTLOADER) \
-		-device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA)
+		-device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA) < input
 endif
 
 debug: build

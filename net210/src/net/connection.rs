@@ -1,8 +1,38 @@
+use k210_hal::serial::{Rx, Tx};
 use k210_hal::time::Bps;
 use k210_hal::prelude::*;
+use k210_pac::UART1;
 use nb::block;
 use k210_soc::{sysctl, fpioa, gpiohs, gpio};
 use k210_soc::fpioa::{io, function};
+
+fn print_from_wifi(rx : &mut Rx<UART1>) {
+    loop {
+        let t = block!(rx.try_read());
+        if let Ok(ch) = t {
+            if ch == 10 {
+                print!("{} {}\n", ch as char, ch);
+                break;
+            } 
+            print!("{} {}\n", ch as char, ch);
+        } else {
+            break;
+        }
+    }
+    print!("\n");
+}
+
+fn at_command(t : &str, tx : &mut Tx<UART1>, rx : &mut Rx<UART1>) {
+    for i in t.chars() {
+        let respon = block!(tx.try_write(i as u8));
+        respon.unwrap();
+    }
+    print_from_wifi(rx);
+    print_from_wifi(rx);
+    print_from_wifi(rx);
+    print_from_wifi(rx);
+    print_from_wifi(rx);
+}
 
 pub fn sent() {
     let ph = unsafe{k210_pac::Peripherals::steal()};
@@ -22,29 +52,6 @@ pub fn sent() {
     let wifi_s = ph.UART1.configure(Bps(115200), &clocks);
     let (mut tx, mut rx) = wifi_s.split();
 
-    let t = "AT+CWJAP_DEF=\"CMCC-2.4G-313\",\"18788187147\"\r\n";
-    for i in t.chars() {
-        let respon = block!(tx.try_write(i as u8));
-        respon.unwrap();
-    }
-    // sleep::usleep(200000);
-
-    // let t = "AT+PING=\"www.baidu.com\"\r\n";
-    // for i in t.chars() {
-    //     let respon = block!(tx.try_write(i as u8));
-    //     respon.unwrap();
-    // }
-    // let t = "AT+CIPSTAMAC_CUR?\r\n";
-    // for i in t.chars() {
-    //     let respon = block!(tx.try_write(i as u8));
-    //     respon.unwrap();
-    // }
-    // loop {
-    //     let t = block!(rx.try_read());
-    //     if let Ok(ch) = t {
-    //         print!("{}", ch as char);
-    //     } else {
-    //         break;
-    //     }
-    // }
+    // at_command("AT+CWJAP_DEF=\"test\",\"12344321\"\r\n", &mut tx, &mut rx);
+    at_command("AT+PING=\"www.baidu.com\"\r\n", &mut tx, &mut rx);
 }

@@ -25,6 +25,7 @@ mod mock {
 }
 
 pub fn sftp_tcp() {
+    return;
     let mut cfg = Config::new();
     let clock = mock::Clock::new();
     cfg.hardware_addr = Some(HardwareAddress::Ethernet(EthernetAddress([0x9c, 0x9c, 0x1f, 0x97, 0xe4, 0x7f])));
