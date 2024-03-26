@@ -36,10 +36,28 @@
 
 <br>  
 
+## 环境搭建
+1. 安装rust nightly工具链
+``` bash 
+rustup install nightly
+rustup default nightly
+```
+2. 安装一些Rust相关的软件包
+```bash 
+rustup target add riscv64gc-unknown-none-elf
+cargo install cargo-binutils
+rustup component add llvm-tools-preview
+rustup component add rust-src
+```
+3. 上板烧录运行
+```
+cd net210
+make run
+```
+
 # 具体设计
 
 ## 与wifi通信
---- 
 M1W配有ESP8285模块，要让M1W与其通过uart进行通信，需要先通过fpioa进行引脚与功能端的配置。
 本项目将WIFI_RX(pin7), WIFI_TX(pin6), WIFI_EN(pin8)，即wifi的接收端，传输段和使能端
 与uart1_rx, uart1_tx和gpiohs8接通，同时配置好相关管脚使能，时钟频率等，即可向其发送AT命令进行控制。  
@@ -48,10 +66,8 @@ ESP8285配有flash，通过命令将要连接的ap的账号和密码配置好后
 ![Ping baidu.com](./pic/PingBaidu.png)
 
 ## TCP协议栈
---- 
 在与wifi成功连接之后，还可通过AT指令来获取、修改无线网卡的ip、mac地址和默认路由。获取到相应的ip和mac后，即可使用将相关数据进行smoltcp的tcp接口的设置。其接口还需要一个实现了Device trait的结构体，用于接收与发送数据包。再之后，就可以创建tcp的buffer来建立socket,通过socket和之前的设立的接口就可以建立与ip进行连接。
 
 ## 流程图与网络层次图
---- 
 ![流程图](./pic/%E6%B5%81%E7%A8%8B%E5%9B%BE.png)  
 ![网络层次图](./pic/%E7%BD%91%E7%BB%9C%E5%B1%82%E6%AC%A1%E5%9B%BE.png)  

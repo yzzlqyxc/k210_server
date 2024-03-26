@@ -7,7 +7,7 @@ mod console;
 mod panic;
 mod sbi;
 mod net;
-
+extern crate lazy_static;
 use core::arch::global_asm;
 use core::include_str;
 

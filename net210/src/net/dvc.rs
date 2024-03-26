@@ -45,7 +45,7 @@ impl<'a> phy::RxToken for K210PhyRxToken<'a> {
     {
         // TODO: receive packet into buffer
         let result = f(&mut self.0);
-        println!("{:?}", self.0);
+        // println!("{:?}", self.0);
         result
     }
 }
