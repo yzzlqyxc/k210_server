@@ -11,7 +11,10 @@ extern crate lazy_static;
 use core::arch::global_asm;
 use core::include_str;
 
+use crate::net::connection::AA;
+
 global_asm!(include_str!("entry.asm"));
+
 
 fn clear_bss() {
     extern "C" {
@@ -26,8 +29,9 @@ fn clear_bss() {
 #[no_mangle]
 pub fn rust_main() -> ! {
     clear_bss();
+    println!("{}", AA.ex().get_time());
     net::test();
     println!("_______ ALL WORKS WELL _______"); 
+    println!("{}", AA.ex().get_time());
     panic!("Shutdown machine!");
 }
-

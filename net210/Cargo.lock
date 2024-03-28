@@ -180,6 +180,7 @@ dependencies = [
  "k210-soc",
  "lazy_static",
  "nb 1.1.0",
+ "riscv 0.6.0 (git+https://github.com/rcore-os/riscv)",
  "smoltcp",
 ]
 

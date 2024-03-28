@@ -1,7 +1,11 @@
+use core::cell::{RefCell, RefMut};
+use core::ops::{Deref, DerefMut};
+
+use k210_hal::clock::Clocks;
 use k210_hal::serial::{Rx, Tx};
 use k210_hal::time::Bps;
 use k210_hal::prelude::*;
-use k210_pac::{Peripherals, UART1};
+use k210_pac::UART1;
 use nb::block;
 use k210_soc::{sysctl, fpioa, gpiohs, gpio};
 use k210_soc::fpioa::{io, function};
@@ -13,38 +17,104 @@ pub enum NetError {
     NotEnd 
 }
 
+use lazy_static::lazy_static;
+lazy_static!{
+    pub static ref AA: UPIntrFreeCell<Transmit> = unsafe{UPIntrFreeCell::new(Transmit::new())};
+}
 #[derive(PartialEq, Debug)]
 pub enum NetOk {
     UdpOk,
     NoError
 }
+pub struct Transmit{
+    clocks :Clocks,
+    tx : Tx<UART1>, 
+    rx : Rx<UART1>, 
+}
+impl Transmit{
+    pub fn new() -> Self {
+        let clocks = k210_hal::clock::Clocks::new(); 
+        let ph = unsafe {k210_pac::Peripherals::steal()};
+        sysctl::clock_enable(sysctl::clock::UART1);
+        sysctl::reset(sysctl::reset::UART1);
+        fpioa::set_function(io::WIFI_RX, function::UART1_TX);
+        fpioa::set_function(io::WIFI_TX, function::UART1_RX);
 
-use lazy_static::lazy_static;
-lazy_static! {
-    pub static ref ph : Peripherals = unsafe{k210_pac::Peripherals::steal()};
+        fpioa::set_function(io::WIFI_EN, fpioa::function::GPIOHS8);
+        fpioa::set_io_pull(io::WIFI_EN, fpioa::pull::DOWN);
+        gpiohs::set_pin(8, true);
+        gpiohs::set_direction(8, gpio::direction::OUTPUT);
+        let wifi_s = ph.UART1.configure(Bps(115200), &clocks);
+        let (tx, rx) = wifi_s.split();
+        Transmit{
+            clocks, 
+            tx,
+            rx
+
+        }
+    }
+    pub fn sent(&mut self, t : &str) {
+        for i in t.chars() {
+            let _ = block!(self.tx.try_write(i as u8));
+        }
+    }
+    pub fn sent_char(&mut self, t : u8) {
+        block!(self.tx.try_write(t as u8));
+    }
+    pub fn get_char(&mut self) -> u8 {
+        let t = block!(self.rx.try_read());
+        // let t = self.rx.try_read();
+        t.unwrap()
+    }
+    pub fn get_time(&self) -> u32{
+        self.clocks.cpu().0
+    }
 }
 
-unsafe impl Sync for Peripherals{}
+pub struct UPIntrFreeCell<T> {
+    /// inner data
+    inner: RefCell<T>,
+}
 
+unsafe impl<T> Sync for UPIntrFreeCell<T> {}
+pub struct UPIntrRefMut<'a, T>(Option<RefMut<'a, T>>);
 
-pub fn print_from_wifi(rx : &mut Rx<UART1>) -> Result<NetOk, NetError>{
+impl<T> UPIntrFreeCell<T> {
+    pub unsafe fn new(value: T) -> Self {
+        Self {
+            inner: RefCell::new(value),
+        }
+    }
+    pub fn ex(&self) -> RefMut<'_, T> {
+        self.inner.borrow_mut()
+    }
+}
+impl<'a, T> Deref for UPIntrRefMut<'a, T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref().unwrap().deref()
+    }
+}
+impl<'a, T> DerefMut for UPIntrRefMut<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.as_mut().unwrap().deref_mut()
+    }
+}
+
+pub fn print_from_wifi() -> Result<NetOk, NetError>{
     let mut cnt = 0;
     let mut s : u8 = 0;
     loop {
         cnt += 1;
-        let t = block!(rx.try_read());
-        if let Ok(ch) = t {
-            if ch == 10 {
-                break;
-            } 
-            print!("{}", ch as char);
-            if cnt == 1 {
-                s = ch;
-            }
-        } else {
+        // let ch = block!(rx.try_read()).unwrap();
+        let ch = AA.ex().get_char();
+        if ch == 10 {
             break;
+        } 
+        print!("{}", ch as char);
+        if cnt == 1 {
+            s = ch;
         }
-
     }
     print!("\n");
     if cnt == 4 && s as char == 'O' {
@@ -60,14 +130,11 @@ pub fn print_from_wifi(rx : &mut Rx<UART1>) -> Result<NetOk, NetError>{
     }
 }
 
-pub fn at_command(t : &str, tx : &mut Tx<UART1>, rx : &mut Rx<UART1>) -> Result<NetOk, NetError> {
-    for i in t.chars() {
-        let respon = block!(tx.try_write(i as u8));
-        respon.unwrap();
-    }
-    let mut t = print_from_wifi(rx);
+pub fn at_command(t : &str) -> Result<NetOk, NetError> {
+    AA.ex().sent(t);
+    let mut t = print_from_wifi();
     loop {
-        t = print_from_wifi(rx);
+        t = print_from_wifi();
         if t != Err(NetError::NotEnd) { 
             break;
         }
@@ -75,15 +142,15 @@ pub fn at_command(t : &str, tx : &mut Tx<UART1>, rx : &mut Rx<UART1>) -> Result<
     t
 }
 
-pub fn udp_send(id : u8, text : &str, tx: &mut Tx<UART1>, rx: &mut
-            Rx<UART1>) -> Result<NetOk, NetError> {
+
+pub fn udp_send(id : u8, text : &str) -> Result<NetOk, NetError> {
     let command = "AT+CIPSEND=";
 
     for i in command.chars() {
-        block!(tx.try_write(i as u8));
+        AA.ex().sent_char(i as u8);
     }
-    block!(tx.try_write(b'0'+ id));
-    block!(tx.try_write(b','));
+    AA.ex().sent_char(b'0' + id);
+    AA.ex().sent_char(b',');
     let mut number = [0u8; 10];
     let mut lenth = text.len();
     let mut idx = 0;
@@ -93,43 +160,20 @@ pub fn udp_send(id : u8, text : &str, tx: &mut Tx<UART1>, rx: &mut
     }    
     for &num in number.iter().rev() {
         if num != 0 {
-            block!(tx.try_write(num));
+            AA.ex().sent_char(num);
         }
     }
-    block!(tx.try_write(b'\r'));
-    block!(tx.try_write(b'\n'));
-    let mut t = print_from_wifi(rx);
+    AA.ex().sent_char(b'\r');
+    AA.ex().sent_char(b'\n');
+    let mut t = print_from_wifi();
     loop {
-        t = print_from_wifi(rx);
+        t = print_from_wifi();
         if t != Err(NetError::NotEnd) { 
             break;
         }
     }
     
-    at_command(text, tx, rx)
+    at_command(text)
 }
-
 
     
-pub fn sent() -> (Tx<UART1>, Rx<UART1>) {
-    let clocks = k210_hal::clock::Clocks::new();
-
-    sysctl::clock_enable(sysctl::clock::UART1);
-    sysctl::reset(sysctl::reset::UART1);
-    fpioa::set_function(io::WIFI_RX, function::UART1_TX);
-    fpioa::set_function(io::WIFI_TX, function::UART1_RX);
-
-    fpioa::set_function(io::WIFI_EN, fpioa::function::GPIOHS8);
-    fpioa::set_io_pull(io::WIFI_EN, fpioa::pull::DOWN);
-    gpiohs::set_pin(8, true);
-    gpiohs::set_direction(8, gpio::direction::OUTPUT);
-
-    let wifi_s = *ph.UART1.configure(Bps(115200), &clocks);
-    let (mut tx, mut rx) = wifi_s.split();
-
-
-    at_command("AT+CWLAP\r\n", &mut tx, &mut rx);
-    at_command("AT+CWJAP_CUR=\"test\",\"12344321\"\r\n", &mut tx, &mut rx);
-    at_command("AT+PING=\"47.93.124.97\"\r\n", &mut tx, &mut rx);
-    (tx, rx)
-}
