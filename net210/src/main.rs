@@ -7,12 +7,12 @@ mod console;
 mod panic;
 mod sbi;
 mod net;
+mod tools;
 extern crate lazy_static;
 use core::arch::global_asm;
 use core::include_str;
 
-use crate::net::connection::AA;
-
+use crate::tools::timer::sleep;
 global_asm!(include_str!("entry.asm"));
 
 
@@ -26,12 +26,19 @@ fn clear_bss() {
     });
 }
 
+use core::arch::asm;
+
 #[no_mangle]
 pub fn rust_main() -> ! {
     clear_bss();
-    println!("{}", AA.ex().get_time());
-    net::test();
+    // net::test();
+    let r : usize;
+    unsafe {asm!("csrr {0}, mcounteren", out(reg) r);}
+    println!("{}", r);
+    
     println!("_______ ALL WORKS WELL _______"); 
-    println!("{}", AA.ex().get_time());
+    sleep(500);
+    println!("_______ ALL WORKS WELL _______"); 
+
     panic!("Shutdown machine!");
 }

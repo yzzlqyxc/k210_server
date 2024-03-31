@@ -1,40 +1,43 @@
 use core::cell::{RefCell, RefMut};
 use core::ops::{Deref, DerefMut};
 
+use crate::tools::timer::get_time;
 use k210_hal::clock::Clocks;
+use k210_hal::prelude::*;
 use k210_hal::serial::{Rx, Tx};
 use k210_hal::time::Bps;
-use k210_hal::prelude::*;
 use k210_pac::UART1;
+use k210_soc::fpioa::{function, io};
+use k210_soc::{fpioa, gpio, gpiohs, sysctl};
 use nb::block;
-use k210_soc::{sysctl, fpioa, gpiohs, gpio};
-use k210_soc::fpioa::{io, function};
 
 #[derive(PartialEq, Debug)]
 pub enum NetError {
     Fail,
     Error,
-    NotEnd 
+    NotEnd,
 }
+pub struct TIMEOUT;
 
 use lazy_static::lazy_static;
-lazy_static!{
-    pub static ref AA: UPIntrFreeCell<Transmit> = unsafe{UPIntrFreeCell::new(Transmit::new())};
+lazy_static! {
+    pub static ref AA: UPIntrFreeCell<Transmit> = unsafe { UPIntrFreeCell::new(Transmit::new()) };
 }
 #[derive(PartialEq, Debug)]
 pub enum NetOk {
     UdpOk,
-    NoError
+    NoError,
 }
-pub struct Transmit{
-    clocks :Clocks,
-    tx : Tx<UART1>, 
-    rx : Rx<UART1>, 
+pub struct Transmit {
+    clocks: Clocks,
+    tx: Tx<UART1>,
+    rx: Rx<UART1>,
+    timeout: usize,
 }
-impl Transmit{
+impl Transmit {
     pub fn new() -> Self {
-        let clocks = k210_hal::clock::Clocks::new(); 
-        let ph = unsafe {k210_pac::Peripherals::steal()};
+        let clocks = k210_hal::clock::Clocks::new();
+        let ph = unsafe { k210_pac::Peripherals::steal() };
         sysctl::clock_enable(sysctl::clock::UART1);
         sysctl::reset(sysctl::reset::UART1);
         fpioa::set_function(io::WIFI_RX, function::UART1_TX);
@@ -46,27 +49,35 @@ impl Transmit{
         gpiohs::set_direction(8, gpio::direction::OUTPUT);
         let wifi_s = ph.UART1.configure(Bps(115200), &clocks);
         let (tx, rx) = wifi_s.split();
-        Transmit{
-            clocks, 
+        Transmit {
+            clocks,
             tx,
-            rx
-
+            rx,
+            timeout: 200,
         }
     }
-    pub fn sent(&mut self, t : &str) {
+    pub fn sent(&mut self, t: &str) {
         for i in t.chars() {
             let _ = block!(self.tx.try_write(i as u8));
         }
     }
-    pub fn sent_char(&mut self, t : u8) {
-        block!(self.tx.try_write(t as u8));
+    pub fn sent_char(&mut self, t: u8) {
+        let _ = block!(self.tx.try_write(t as u8));
     }
-    pub fn get_char(&mut self) -> u8 {
-        let t = block!(self.rx.try_read());
+    pub fn get_char(&mut self) -> Result<u8, TIMEOUT>{
+        let now = get_time();
+        println!("{}", get_time() - now);
+        while get_time() - now <= self.timeout {
+            if let Ok(u) = self.rx.try_read() {
+                return Ok(u);
+            }
+            println!("{}", get_time() - now);
+        }
         // let t = self.rx.try_read();
-        t.unwrap()
+        Err(TIMEOUT)
     }
-    pub fn get_time(&self) -> u32{
+
+    pub fn get_time(&self) -> u32 {
         self.clocks.cpu().0
     }
 }
@@ -101,20 +112,25 @@ impl<'a, T> DerefMut for UPIntrRefMut<'a, T> {
     }
 }
 
-pub fn print_from_wifi() -> Result<NetOk, NetError>{
+pub fn print_from_wifi() -> Result<NetOk, NetError> {
     let mut cnt = 0;
-    let mut s : u8 = 0;
+    let mut s: u8 = 0;
     loop {
         cnt += 1;
         // let ch = block!(rx.try_read()).unwrap();
-        let ch = AA.ex().get_char();
-        if ch == 10 {
-            break;
-        } 
-        print!("{}", ch as char);
-        if cnt == 1 {
-            s = ch;
+        let re = AA.ex().get_char();
+        if let Ok(c) = re {
+            if c == 10 {
+                break;
+            }
+            print!("{}", c as char);
+            if cnt == 1 {
+                s = c;
+            }
+        } else {
+            continue;
         }
+        
     }
     print!("\n");
     if cnt == 4 && s as char == 'O' {
@@ -130,20 +146,19 @@ pub fn print_from_wifi() -> Result<NetOk, NetError>{
     }
 }
 
-pub fn at_command(t : &str) -> Result<NetOk, NetError> {
+pub fn at_command(t: &str) -> Result<NetOk, NetError> {
     AA.ex().sent(t);
     let mut t = print_from_wifi();
     loop {
         t = print_from_wifi();
-        if t != Err(NetError::NotEnd) { 
+        if t != Err(NetError::NotEnd) {
             break;
         }
     }
     t
 }
 
-
-pub fn udp_send(id : u8, text : &str) -> Result<NetOk, NetError> {
+pub fn udp_send(id: u8, text: &str) -> Result<NetOk, NetError> {
     let command = "AT+CIPSEND=";
 
     for i in command.chars() {
@@ -156,8 +171,9 @@ pub fn udp_send(id : u8, text : &str) -> Result<NetOk, NetError> {
     let mut idx = 0;
     while lenth > 0 {
         number[idx] = (lenth % 10) as u8 + b'0';
-        idx += 1; lenth /= 10;
-    }    
+        idx += 1;
+        lenth /= 10;
+    }
     for &num in number.iter().rev() {
         if num != 0 {
             AA.ex().sent_char(num);
@@ -168,12 +184,10 @@ pub fn udp_send(id : u8, text : &str) -> Result<NetOk, NetError> {
     let mut t = print_from_wifi();
     loop {
         t = print_from_wifi();
-        if t != Err(NetError::NotEnd) { 
+        if t != Err(NetError::NotEnd) {
             break;
         }
     }
-    
+
     at_command(text)
 }
-
-    
