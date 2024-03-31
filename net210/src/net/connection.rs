@@ -1,7 +1,8 @@
 use core::cell::{RefCell, RefMut};
 use core::ops::{Deref, DerefMut};
 
-use crate::tools::timer::get_time;
+use crate::console::print;
+use crate::tools::timer::{get_time, get_time_ms};
 use k210_hal::clock::Clocks;
 use k210_hal::prelude::*;
 use k210_hal::serial::{Rx, Tx};
@@ -17,6 +18,7 @@ pub enum NetError {
     Error,
     NotEnd,
 }
+#[derive(Debug)]
 pub struct TIMEOUT;
 
 use lazy_static::lazy_static;
@@ -53,7 +55,7 @@ impl Transmit {
             clocks,
             tx,
             rx,
-            timeout: 200,
+            timeout: 20,
         }
     }
     pub fn sent(&mut self, t: &str) {
@@ -65,13 +67,11 @@ impl Transmit {
         let _ = block!(self.tx.try_write(t as u8));
     }
     pub fn get_char(&mut self) -> Result<u8, TIMEOUT>{
-        let now = get_time();
-        println!("{}", get_time() - now);
-        while get_time() - now <= self.timeout {
+        let now = get_time_ms();
+        while get_time_ms() - now <= self.timeout {
             if let Ok(u) = self.rx.try_read() {
                 return Ok(u);
             }
-            println!("{}", get_time() - now);
         }
         // let t = self.rx.try_read();
         Err(TIMEOUT)
@@ -116,10 +116,11 @@ pub fn print_from_wifi() -> Result<NetOk, NetError> {
     let mut cnt = 0;
     let mut s: u8 = 0;
     loop {
-        cnt += 1;
         // let ch = block!(rx.try_read()).unwrap();
         let re = AA.ex().get_char();
+        // println!("{:?}", re);
         if let Ok(c) = re {
+            cnt += 1;
             if c == 10 {
                 break;
             }
@@ -190,4 +191,61 @@ pub fn udp_send(id: u8, text: &str) -> Result<NetOk, NetError> {
     }
 
     at_command(text)
+}
+
+fn get_num() -> usize {
+    let mut num = 0;
+    loop {
+        let t = AA.ex().get_char(); 
+        if let Ok(u) = t {
+            if u >= b'0' && u <= b'9' {
+                num = num * 10 + u as usize - '0' as usize;
+            } else {
+                break;
+            }
+        }
+    }
+    num
+}
+
+fn get_buf(buf: &mut [u8] , lenth : usize)  {
+    println!("{}", lenth);
+    for i in 0..lenth {
+        loop {
+            let r = AA.ex().get_char();
+            if let Ok(u) = r {
+                buf[i] = u;
+                break;
+            }
+        }
+    }
+}
+
+pub fn try_receive_remote(buf : &mut [u8]) -> Result<(usize, usize), TIMEOUT> {
+    let mut cnt = 0;
+    let mut port = 0;
+    let mut lenth = 0;
+    let now = get_time_ms();
+    loop {
+        if get_time_ms() - now >= 200 && cnt == 0{
+            return Err(TIMEOUT);
+        }
+        let r : Result<u8, TIMEOUT> = AA.ex().get_char();
+        if let Ok(u) = r {
+            if u != 10 && u != 13 {
+                cnt += 1;
+            }
+            
+            if cnt == 5 {
+                port = get_num();
+                lenth = get_num();
+                get_buf(buf, lenth);
+                return Ok((port, lenth))
+            } 
+        }
+        else{
+            return Err(TIMEOUT)
+        }
+
+    }
 }

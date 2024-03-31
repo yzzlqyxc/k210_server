@@ -12,5 +12,5 @@ pub fn test() {
     at_command("AT+CIPSTART=1,\"UDP\",\"47.93.124.97\",12345,12345\r\n");
     // at_command("AT+CIPSEND=1,7\r\n", &mut tx, &mut rx);
     // let t = at_command("Hello\r\n", &mut tx, &mut rx);
-    udp_send(1, "Hello\r\n");
+    udp_send(1, "Hello");
 }
