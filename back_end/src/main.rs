@@ -1,6 +1,9 @@
-use std::net::UdpSocket;
+use std::{collections::HashMap, net::UdpSocket, thread::sleep, time::Duration};
+
+use axum::{routing, Router};
+
+async fn udps() {
     
-fn main() {
     let socket = UdpSocket::bind("0.0.0.0:12345").unwrap();
     println!("Server listening on port 12345...");
     let mut buf = [0; 1024];
@@ -20,4 +23,23 @@ fn main() {
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
     }
+}
+
+async fn root() -> &'static str {
+    "Hello, World!"
+}
+
+#[tokio::main] async fn main() {
+    tokio::spawn(async move {
+        udps().await;
+    });
+
+    tracing_subscriber::fmt::init();
+    let app = Router::new()
+        // `GET /` goes to `root`
+        .route("/", routing::get(root));
+
+    // run our app with hyper, listening globally on port 3000
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, app).await.unwrap(); 
 }
