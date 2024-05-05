@@ -15,6 +15,7 @@ use core::include_str;
 use k210_soc::spi::SPIExt;
 use k210_soc::dmac::{dma_channel, DMACExt};
 use k210_soc::sysctl;
+use crate::net::connection::try_receive_remote;
 use crate::tools::timer::sleep;
 use screen::lcd::{Lcd, LCD_X_MAX, LCD_Y_MAX};
 
@@ -46,19 +47,20 @@ pub fn rust_main() -> ! {
     net::test();
     println!("_______ ALL WORKS WELL _______"); 
 
-    // loop {
-    //     let mut buf = [0u8;1024];
-    //     let t = try_receive_remote(&mut buf);
-    //     if let Ok((port, cnt)) = t {
-    //         println!("{} {}", port, cnt);
-    //         for i in 0..cnt {
-    //             print!("{}", buf[i] as char);
-    //         }
-    //         print!("\n");
-    //     } else {
-    //         println!("timeout!");
-    //     }
-    //     sleep(20);
-    // }
+    loop {
+        let mut buf = [0u8;1024];
+        let t = try_receive_remote(&mut buf);
+        if let Ok((port, cnt)) = t {
+            println!("{} {}", port, cnt);
+            for i in 0..cnt {
+                print!("{}", buf[i] as char);
+            }
+            print!("\n");
+            tools::parse(&buf);
+        } else {
+            println!("timeout!");
+        }
+        sleep(20);
+    }
     panic!("Shutdown machine!");
 }
