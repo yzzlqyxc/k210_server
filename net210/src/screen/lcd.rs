@@ -86,7 +86,7 @@ impl<'a, X : SPI> Lcd<'a, X> {
         self.write_command(LCD_COMMAND::NORON);
         self.write_command(LCD_COMMAND::DISPON);
         sleep(10);
-        let color = 0x2dc4;
+        let color = 0x41b7;
         let data = (color << 16) | color;
         self.set_area(0, 0, LCD_X_MAX - 1, LCD_Y_MAX - 1);
         self.fill_data(data, usize::from(LCD_X_MAX) * usize::from(LCD_Y_MAX));
