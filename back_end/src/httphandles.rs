@@ -1,18 +1,25 @@
 use std::time::Duration;
 
-use axum::{extract::{Path, State}, handler::HandlerWithoutStateExt, response::Html, routing::get, Extension, Router};
+use axum::{extract::{Path, State}, handler::HandlerWithoutStateExt, http::Method, response::Html, routing::get, Extension, Router};
 use tokio::time::{sleep};
+use tower_http::cors::{Any, CorsLayer};
 
 use crate::{AsyncMap, AsyncSocket};
 
 pub async fn https(mp : AsyncMap, socket: AsyncSocket) {
-    // build our application with a route
+    let cors = CorsLayer::new()
+                            .allow_headers(Any)
+                            .allow_methods([Method::POST, Method::GET])
+                            .allow_origin(Any);
+
+
     let app = Router::new()
                     .route("/getUserList", get(get_user_list))
                     .route("/getUserHistory/:id", get(get_user_history))
+                    .layer(cors)
                     .with_state((mp, socket));
 
-    // run it
+
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await
         .unwrap();
@@ -21,6 +28,7 @@ pub async fn https(mp : AsyncMap, socket: AsyncSocket) {
 }
 
 pub async fn get_user_list(State(state): State<(AsyncMap, AsyncSocket)>) -> String {
+    println!("in");
     let (mp, _) = state;
     let t = mp.clone();
     let mp_clone = t.lock().unwrap();
