@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::UdpSocket, sync::{Arc, Mutex}, time::Duration};
+use std::{cmp::min, collections::HashMap, net::UdpSocket, sync::{Arc, Mutex}, time::Duration};
 use std::net::SocketAddr;
 use crate::{AsyncMap, AsyncSocket};
 
@@ -30,17 +30,35 @@ impl ServerCommu {
     pub fn get_history(&self) -> Vec<String> {
         self.history.clone()
     }
-    fn send_msg(&mut self, str : String, socket : AsyncSocket) {
+    pub fn send_msg(&mut self, str : String, socket : AsyncSocket) {
         let t = socket.clone();
         let soc = t.lock().unwrap();
         println!("{:?}", self);
         soc.send_to(&str.as_bytes()[..str.len()], self.addr).unwrap();
         self.add_commu(str);
     }
-    
+    pub fn send_pic(&mut self, str : &Vec<u8>, socket : AsyncSocket) {
+        println!("iiiiiinnnn");
+        let t = socket.clone();
+        let soc = t.lock().unwrap();
+        let len = str.len();
+        let times = len / 100 + ((len % 100 != 0) as usize);
+        let head = format!("PIC {}", times);
+        println!("{}", head);
+        soc.send_to(&head.as_bytes()[0..head.len()], self.addr).unwrap();
+
+        let lag = 30;
+        std::thread::sleep(Duration::from_millis(lag));
+        for i in 0..times {
+            println!("have send{}", i);
+            soc.send_to(&str[(i * 100)..min(i * 100 + 100, str.len())], self.addr).unwrap();
+            std::thread::sleep(Duration::from_millis(lag));
+        }
+    }   
 }
 
 async fn heartbeats(mp : AsyncMap, socket : AsyncSocket) {
+    return ;
     loop {
         {unsafe{HEART += 1;}
         let t = mp.clone();
@@ -59,7 +77,6 @@ async fn heartbeats(mp : AsyncMap, socket : AsyncSocket) {
         }}
         sleep(Duration::from_secs(1)).await; 
     }
-
 }
 
 async fn handling_incoming(socket : AsyncSocket, mp : AsyncMap) {
