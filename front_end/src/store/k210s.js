@@ -3,8 +3,9 @@ import $ from 'jquery'
 export const ModuleK210 = {
     state () {
         return {
-            loadedK210s : ["fdasf"],
-            key : 1
+            loadedK210s : [],
+            history : [],
+            remotePort : ""
         }
     },
     getters : {
@@ -12,8 +13,16 @@ export const ModuleK210 = {
     },
     mutations : {
         updateLoadedK210s(state, ports) {
-            state.loadedK210s.push("fdas")
-            console.log(state.loadedK210s, ports);
+            const t = JSON.parse(ports)
+            console.log(t);
+            state.loadedK210s = t.addrs
+        },
+        updatePort(state, port) {
+            state.remotePort = port
+        }, 
+        updateHistories(state, history) {
+            const t = JSON.parse(history)
+            state.history = t.histories
         }
     },
     actions : {
@@ -32,8 +41,21 @@ export const ModuleK210 = {
                     console.log(resp)
                 }
             })
-
+        },
+        uploadHistories(context) {
+            if (context.state.remotePort == "") {
+                return 
+            }
+            $.ajax({
+                url: `http://47.93.124.97:3000/getUserHistory/${context.state.remotePort}`,
+                type : "GET",
+                success(resp) {
+                    context.commit("updateHistories", resp)
+                },
+                error(resp) {
+                    console.log(resp);
+                }
+            })
         }
-        
     }
 }
