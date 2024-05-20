@@ -4,6 +4,7 @@ use k210_soc::{fpioa, gpio, gpiohs, sysctl};
 use k210_soc::fpioa::{function, io, pull};
 use super::command::LCD_COMMAND;
 
+use crate::net::connection::{get_buf, get_num, qui_get_num, quick_get_buf, AA};
 use crate::tools::timer::sleep;
 
 pub struct Lcd<'a, SPI> {
@@ -80,8 +81,9 @@ impl<'a, X : SPI> Lcd<'a, X> {
         self.write_byte(&[0x55]);
 
         self.set_direction(LCD_DIRECTION::XY_LRUD);
+        self.write_command(LCD_COMMAND::IDMOFF);
+        self.write_command(LCD_COMMAND::IDMOFF);
 
-        /*display on*/
         self.write_command(LCD_COMMAND::SLPOUT);
         self.write_command(LCD_COMMAND::NORON);
         self.write_command(LCD_COMMAND::DISPON);
@@ -89,10 +91,24 @@ impl<'a, X : SPI> Lcd<'a, X> {
         let color = 0x41b7;
         let data = (color << 16) | color;
         self.set_area(0, 0, LCD_X_MAX - 1, LCD_Y_MAX - 1);
-        self.fill_data(data, usize::from(LCD_X_MAX) * usize::from(LCD_Y_MAX));
+        self.fill_data(data, usize::from(LCD_X_MAX) * usize::from(LCD_Y_MAX) / 2);
+        self.write_command(LCD_COMMAND::IDMON);
     }
     fn dc_command(&self) {
         gpiohs::set_pin(DC_GPIO_NUM, false);
+    }
+    fn show_img(&self, buf : &[u8]) {
+        self.write_command(LCD_COMMAND::IDMOFF);
+        self.set_area(0, 0, LCD_X_MAX - 1, LCD_Y_MAX - 1);
+        let byte_ptr: *const u8 = buf.as_ptr();
+        let u32_ptr: *const u32 = unsafe {
+            core::mem::transmute(byte_ptr)
+        };
+        let u32_slice: &[u32] =unsafe {
+            core::slice::from_raw_parts(u32_ptr, buf.len() / core::mem::size_of::<u32>())
+        }; 
+        self.write_byte(u32_slice);
+        self.write_command(LCD_COMMAND::IDMON);
     }
     fn dc_data(&self) {
         gpiohs::set_pin(DC_GPIO_NUM, true);
@@ -188,4 +204,36 @@ impl<'a, X : SPI> Lcd<'a, X> {
         self.write_byte(&[dir as u32]);
     }
 
+    pub fn final_pro(&mut self, page : usize) {
+        let mut cnnt = 0;
+        let mut t : [u8;160000] = [0;160000];
+        let mut borr = AA.ex();
+        let mut lenth= 0;
+        for i  in 0..page {
+            let mut buf : [u8;1024] = [0;1024];
+            let mut cnt = 0;
+            loop {
+                let u = borr.quick_read();
+                print!("{}", u as char);
+                if u == 10 || u == 13 {
+                    continue;
+                }
+                cnt += 1;
+                if cnt == 5 {
+                    _ = qui_get_num(&mut borr);
+                    lenth = qui_get_num(&mut borr);
+                    println!("page{} length{}", i, lenth);
+                    quick_get_buf(&mut buf, lenth, &mut borr);
+                    cnt = 0;
+                    break;
+                } 
+            }
+            for j in 0..lenth{
+                cnnt += 1;
+                t[i*100+j] = buf[j];
+            }
+        }
+        println!("{}", cnnt);
+        self.show_img(&t);
+    }
 }
