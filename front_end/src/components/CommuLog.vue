@@ -1,8 +1,21 @@
 <template>
-  <div>
-    <div class="uploadfile" v-if="check != ``">
+  <div >
+    <div v-if="check != ``">
+    <table class="table">
+      <thead> 
+        <th scope="col">会话记录</th>
+      </thead>
+      <tbody>
+        <tr v-for="(a, idx) in history" :key="idx">
+            <th>{{ a }}</th>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="uploadfile" >
         <input class="form-control" type="file" id="formFile" @change="fileChoose">
         <button type="button" @click="uploadFile" class="btn btn-primary">上传照片</button>
+    </div>
     </div>
   </div>
 </template>
@@ -15,7 +28,20 @@ import { useStore } from 'vuex';
 
 export default {
   setup() {
-
+    const store = useStore();
+    setInterval(() => {
+      store.dispatch("uploadHistories", {
+        success(resp) {
+          console.log(resp);
+        }, 
+        error(resp) {
+          console.log(resp);
+        }
+      });
+    }, 500);
+    return {
+      history: computed(() => store.state.k210s.history),
+    }
   },
   data() {
     const stores = useStore();
@@ -63,5 +89,11 @@ export default {
 <style>
 .uploadfile{
   display:flex;
+  position: fixed;
+  width: 60%;
+  bottom: 0;
+}
+.body {
+  height: 100%;
 }
 </style>

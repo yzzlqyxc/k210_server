@@ -38,10 +38,6 @@ export default {
         }
       });
     }, 2000);
-    setInterval(() => {
-      store.dispatch("uploadHistories");
-    }, 500);
-
     return {
       loadedK210s : computed(() => store.state.k210s.loadedK210s),
       flag : computed(() => store.state.k210s.loadedK210s.length),

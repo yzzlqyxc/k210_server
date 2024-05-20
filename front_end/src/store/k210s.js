@@ -22,6 +22,7 @@ export const ModuleK210 = {
         }, 
         updateHistories(state, history) {
             const t = JSON.parse(history)
+            console.log(t.histories);
             state.history = t.histories
         }
     },
