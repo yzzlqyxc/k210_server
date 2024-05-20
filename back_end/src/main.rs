@@ -1,45 +1,22 @@
-use std::{collections::HashMap, net::UdpSocket, thread::sleep, time::Duration};
+mod k210handle;
+mod httphandles;
+use std::{collections::HashMap, net::UdpSocket, sync::{Arc, Mutex}};
 
-use axum::{routing, Router};
-
-async fn udps() {
-    
-    let socket = UdpSocket::bind("0.0.0.0:12345").unwrap();
-    println!("Server listening on port 12345...");
-    let mut buf = [0; 1024];
-
-    loop {
-        // Receive data from a client
-        let (num_bytes, src_addr) = socket.recv_from(&mut buf).unwrap();
-
-        // Convert the received bytes to a string
-        let received_str = std::str::from_utf8(&buf[..num_bytes]).unwrap();
-
-        println!("Received message from {}: {}", src_addr, received_str);
-
-        // Echo the received message back to the client
-        for _ in 0..3 {
-            socket.send_to(&buf[..num_bytes], src_addr).unwrap();
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
-    }
-}
-
-async fn root() -> &'static str {
-    "Hello, World!"
-}
+use axum::{response::Html, routing::get, Router};
+use k210handle::ServerCommu;
+type AsyncMap = Arc<Mutex<HashMap<String, ServerCommu>>>;
+type AsyncSocket = Arc<Mutex<UdpSocket>>;
 
 #[tokio::main] async fn main() {
-    tokio::spawn(async move {
-        udps().await;
-    });
+    let mp: AsyncMap = Arc::new(Mutex::new(HashMap::new()));
+    let socket : AsyncSocket = Arc::new(Mutex::new(UdpSocket::bind("0.0.0.0:12345").unwrap()));
 
-    tracing_subscriber::fmt::init();
-    let app = Router::new()
-        // `GET /` goes to `root`
-        .route("/", routing::get(root));
+    let a = mp.clone();
+    let b = socket.clone();
+    let aa = mp.clone();
+    let bb = socket.clone();
 
-    // run our app with hyper, listening globally on port 3000
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, app).await.unwrap(); 
+    let k210 = tokio::task::spawn(k210handle::udps(a, b));
+    let https = tokio::task::spawn(httphandles::https(aa, bb));
+    tokio::try_join!(k210, https);
 }

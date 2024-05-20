@@ -5,7 +5,8 @@ pub mod connection;
 
 pub fn test() {
     at_command("AT+CWLAP\r\n");
-    at_command("AT+CWJAP_CUR=\"CMCC-v2p7\",\"kyws4wk7\"\r\n");
+    at_command("AT+CWJAP_CUR=\"test\",\"12344321\"\r\n");
+    // at_command("AT+CWJAP_CUR=\"CMCC-2.4G-313\",\"18788187147\"\r\n");
     // loop {
         // let t = at_command("AT+CWJAP_CUR=\"test\",\"12344321\"\r\n");
     //     if t.is_ok() {

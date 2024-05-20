@@ -42,7 +42,6 @@ pub fn rust_main() -> ! {
     sysctl::set_power_mode(sysctl::power_bank::BANK6, sysctl::io_power_mode::V18);
     sysctl::set_power_mode(sysctl::power_bank::BANK7, sysctl::io_power_mode::V18);
     let mut lcd = Lcd::new(spi, &dmc, dma_channel::CHANNEL0);
-
     lcd.on();
     net::test();
     println!("_______ ALL WORKS WELL _______"); 
@@ -56,7 +55,11 @@ pub fn rust_main() -> ! {
                 print!("{}", buf[i] as char);
             }
             print!("\n");
-            tools::parse(&buf);
+            let (cmd, arg) = tools::parse(&buf);
+            
+            if cmd == 2 {
+                lcd.final_pro(arg);
+            }
         } else {
             println!("timeout!");
         }

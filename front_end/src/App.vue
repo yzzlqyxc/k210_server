@@ -1,8 +1,8 @@
 <template>
 <Router class="router"></Router>
 <div class="container">
-  <CataLog class="left"></CataLog>
-  <Content class="right"></Content>
+  <Content class="left"></Content>
+  <CataLog class="right"></CataLog>
 </div>
 </template>
 
@@ -26,18 +26,20 @@ export default {
   display: flex;
 }
 .router{
-  position: fixed;
+  position: flex;
   top:0;
   width: 100%;
 }
 .left {
   flex: 2;
-  background-color: yellow;
+  top : 10;
+  background-color: rgb(105, 94, 94);
   height: 100vh;
 }
 .right {
   flex: 5;
-  background-color: red;
+  top : 10;
+  background-color: grey;
   height: 100vh;
 }
 

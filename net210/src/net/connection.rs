@@ -76,6 +76,9 @@ impl Transmit {
         // let t = self.rx.try_read();
         Err(TIMEOUT)
     }
+    pub fn quick_read(&mut self) -> u8 {
+        block!(self.rx.try_read()).unwrap()
+    }
 
     pub fn get_time(&self) -> u32 {
         self.clocks.cpu().0
@@ -112,12 +115,12 @@ impl<'a, T> DerefMut for UPIntrRefMut<'a, T> {
     }
 }
 
-pub fn print_from_wifi() -> Result<NetOk, NetError> {
+pub fn print_from_wifi(borro : &mut RefMut<Transmit>) -> Result<NetOk, NetError> {
     let mut cnt = 0;
     let mut s: u8 = 0;
     loop {
         // let ch = block!(rx.try_read()).unwrap();
-        let re = AA.ex().get_char();
+        let re = borro.get_char();
         // println!("{:?}", re);
         if let Ok(c) = re {
             cnt += 1;
@@ -148,10 +151,11 @@ pub fn print_from_wifi() -> Result<NetOk, NetError> {
 }
 
 pub fn at_command(t: &str) -> Result<NetOk, NetError> {
-    AA.ex().sent(t);
-    let mut t = print_from_wifi();
+    let mut borro = AA.ex();
+    borro.sent(t);
+    let mut t = print_from_wifi(&mut borro);
     loop {
-        t = print_from_wifi();
+        t = print_from_wifi(&mut borro);
         if t != Err(NetError::NotEnd) {
             break;
         }
@@ -160,13 +164,15 @@ pub fn at_command(t: &str) -> Result<NetOk, NetError> {
 }
 
 pub fn udp_send(id: u8, text: &str) -> Result<NetOk, NetError> {
+{
+    let mut borro = AA.ex();
     let command = "AT+CIPSEND=";
 
     for i in command.chars() {
-        AA.ex().sent_char(i as u8);
+        borro.sent_char(i as u8);
     }
-    AA.ex().sent_char(b'0' + id);
-    AA.ex().sent_char(b',');
+    borro.sent_char(b'0' + id);
+    borro.sent_char(b',');
     let mut number = [0u8; 10];
     let mut lenth = text.len();
     let mut idx = 0;
@@ -177,26 +183,27 @@ pub fn udp_send(id: u8, text: &str) -> Result<NetOk, NetError> {
     }
     for &num in number.iter().rev() {
         if num != 0 {
-            AA.ex().sent_char(num);
+            borro.sent_char(num);
         }
     }
-    AA.ex().sent_char(b'\r');
-    AA.ex().sent_char(b'\n');
-    let mut t = print_from_wifi();
+    borro.sent_char(b'\r');
+    borro.sent_char(b'\n');
+    let mut t = print_from_wifi(&mut borro);
     loop {
-        t = print_from_wifi();
+        t = print_from_wifi(&mut borro);
         if t != Err(NetError::NotEnd) {
             break;
         }
     }
-
+}
     at_command(text)
 }
 
-fn get_num() -> usize {
+pub fn get_num() -> usize {
     let mut num = 0;
+    let mut borr = AA.ex();
     loop {
-        let t = AA.ex().get_char(); 
+        let t = borr.get_char(); 
         if let Ok(u) = t {
             if u >= b'0' && u <= b'9' {
                 num = num * 10 + u as usize - '0' as usize;
@@ -208,16 +215,36 @@ fn get_num() -> usize {
     num
 }
 
-fn get_buf(buf: &mut [u8] , lenth : usize)  {
+pub fn qui_get_num(borro : &mut RefMut<Transmit>) -> usize {
+    let mut num = 0;
+    loop {
+        let u = borro.quick_read(); 
+        if u >= b'0' && u <= b'9' {
+            num = num * 10 + u as usize - '0' as usize;
+        } else {
+            break;
+        }
+    }
+    num
+}
+
+pub fn get_buf(buf: &mut [u8] , lenth : usize)  {
     println!("{}", lenth);
+    let mut borro = AA.ex();
     for i in 0..lenth {
         loop {
-            let r = AA.ex().get_char();
+            let r = borro.get_char();
             if let Ok(u) = r {
                 buf[i] = u;
                 break;
             }
         }
+    }
+}
+
+pub fn quick_get_buf(buf: &mut [u8] , lenth : usize, borro : &mut RefMut<Transmit>) {
+    for i in 0..lenth{
+        buf[i] = borro.quick_read(); 
     }
 }
 
