@@ -45,6 +45,7 @@ impl ServerCommu {
         let times = len / 100 + ((len % 100 != 0) as usize);
         let head = format!("PIC {}", times);
         println!("{}", head);
+        self.add_commu("Sendind picture".to_owned());
         soc.send_to(&head.as_bytes()[0..head.len()], self.addr).unwrap();
 
         let lag = 30;
@@ -54,6 +55,7 @@ impl ServerCommu {
             soc.send_to(&str[(i * 100)..min(i * 100 + 100, str.len())], self.addr).unwrap();
             std::thread::sleep(Duration::from_millis(lag));
         }
+        self.add_commu("Sending picture finished".to_owned());
     }   
 }
 
